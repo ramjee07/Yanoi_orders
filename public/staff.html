@@ -95,12 +95,31 @@ function connect(){
   es.addEventListener('snapshot', e => { snap = JSON.parse(e.data); offset = snap.now - Date.now(); render(); });
 }
 function beep(){
+  // A short original cheerful jingle for "new order!" — not based on any existing song.
   if(!soundOn) return;
   try{
     if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
     if(audioCtx.state === 'suspended') audioCtx.resume();
     const c = audioCtx;
-    [0,.18].forEach(d=>{ const o=c.createOscillator(),g=c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value=880; g.gain.value=.2; o.start(c.currentTime+d); o.stop(c.currentTime+d+.12); });
+    // [time offset in seconds, note frequency in Hz, note length in seconds]
+    const notes = [
+      [0.00, 659, 0.10], // E5
+      [0.11, 784, 0.10], // G5
+      [0.22, 988, 0.16], // B5
+      [0.42, 784, 0.10], // G5
+      [0.53, 988, 0.22], // B5 (held a little longer, playful finish)
+    ];
+    notes.forEach(([t, freq, len]) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'triangle'; // softer, friendlier tone than a plain beep
+      o.connect(g); g.connect(c.destination);
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, c.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(0.25, c.currentTime + t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + t + len);
+      o.start(c.currentTime + t);
+      o.stop(c.currentTime + t + len + 0.02);
+    });
   }catch(_){}
 }
 $('#sound').onclick = () => { unlockAudio(); soundOn = !soundOn; $('#sound').textContent = soundOn ? '🔔 Sound on' : '🔔 Sound off'; beep(); };
