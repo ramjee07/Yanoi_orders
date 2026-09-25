@@ -61,19 +61,31 @@ button.ok{background:var(--ok);color:#052e16}button.off{background:var(--bad)}
 
 <script>
 const $ = s => document.querySelector(s);
-let pin = sessionStorage.getItem('pin') || '', snap = null, offset = 0, es = null, soundOn = false, known = new Set(), first = true;
+let pin = sessionStorage.getItem('pin') || '', snap = null, offset = 0, es = null, soundOn = false, known = new Set(), first = true, audioCtx = null;
 const rupee = n => '₹' + n.toLocaleString('en-IN');
 const api = (p, body) => fetch(p, { method:'POST', headers:{'Content-Type':'application/json','x-staff-pin':pin}, body:JSON.stringify(body) });
 
+function unlockAudio(){
+  // Must run inside a real click/keypress, so we grab it the moment staff logs in
+  // and never need a separate "tap the bell" step again.
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+  }catch(_){}
+}
+
 async function login(p){
+  unlockAudio();
   const r = await fetch('/api/staff/check', { headers:{'x-staff-pin':p} });
   if(!r.ok){ $('#lerr').textContent = 'Wrong PIN'; return; }
   pin = p; sessionStorage.setItem('pin', p);
+  soundOn = true; $('#sound').textContent = '🔔 Sound on';
   $('#login').classList.add('hidden'); $('#app').classList.remove('hidden'); connect();
+  beep(); // quick confirmation blip so staff know sound is live
 }
-$('#go').onclick = () => login($('#pin').value);
-$('#pin').addEventListener('keydown', e => { if(e.key==='Enter') login($('#pin').value); });
-if(pin) login(pin);
+$('#go').onclick = () => { unlockAudio(); login($('#pin').value); };
+$('#pin').addEventListener('keydown', e => { if(e.key==='Enter'){ unlockAudio(); login($('#pin').value); } });
+if(pin){ soundOn = true; login(pin); } // page was reloaded while already logged in this browser tab
 
 function connect(){
   if(es) es.close();
@@ -84,9 +96,14 @@ function connect(){
 }
 function beep(){
   if(!soundOn) return;
-  try{ const c = new (window.AudioContext||window.webkitAudioContext)(); [0,.18].forEach(d=>{ const o=c.createOscillator(),g=c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value=880; g.gain.value=.2; o.start(c.currentTime+d); o.stop(c.currentTime+d+.12); }); }catch(_){}
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    const c = audioCtx;
+    [0,.18].forEach(d=>{ const o=c.createOscillator(),g=c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value=880; g.gain.value=.2; o.start(c.currentTime+d); o.stop(c.currentTime+d+.12); });
+  }catch(_){}
 }
-$('#sound').onclick = () => { soundOn = !soundOn; $('#sound').textContent = soundOn ? '🔔 Sound on' : '🔔 Sound off'; beep(); };
+$('#sound').onclick = () => { unlockAudio(); soundOn = !soundOn; $('#sound').textContent = soundOn ? '🔔 Sound on' : '🔔 Sound off'; beep(); };
 
 function card(o, btnLabel, next){
   const items = o.items.map(i => `${i.qty} × ${i.name}`).join('<br>');
@@ -111,9 +128,14 @@ function render(){
   fill('#cPrep', by('preparing'), 'Mark ready', 'ready');
   fill('#cReady', by('ready'), 'Collected', 'collected');
   const ids = new Set(snap.live.map(o => o.id));
-  if(!first && snap.live.some(o => o.status==='paid' && !known.has(o.id))) beep();
   known = ids; first = false; drawTimers();
 }
+// Keep ringing every few seconds for as long as ANY order is sitting unaccepted
+// in the "New (paid)" column. Stops the moment staff tap "Start making" (that
+// moves the order to "preparing", so it drops out of this check).
+setInterval(() => {
+  if(snap && snap.live.some(o => o.status === 'paid')) beep();
+}, 4000);
 function drawTimers(){
   if(!snap) return;
   const now = Date.now() + offset;
