@@ -6,9 +6,9 @@ module.exports = {
   maxActiveOrders: 8,           // orders being made at once; above this the page says "busy"
   pendingExpiryMinutes: 15,     // unpaid checkouts are dropped after this long
   menu: [
-    { id: 'noi-cold-coffee', name: 'Noi Cold Coffee (Classic)',       desc: 'Signature cold coffee',   price: 149, emoji: '🥤' },
-    { id: 'coffee-cloud',    name: 'Coffee Cloud (Coffee + Cloud)',   desc: 'Coffee with a cloud of foam', price: 179, emoji: '🥤☁️' },
-    { id: 'hazelnut-drift',  name: 'Hazelnut Drift', desc: 'Hazelnut flavoured coffee', price: 169, emoji: '🥤🌰', badge: 'Best Seller' }
+    { id: 'noi-cold-coffee', name: 'Noi Cold Coffee (Classic)',       desc: 'Signature cold coffee',   price: 83, emoji: '🥤' },
+    { id: 'coffee-cloud',    name: 'Coffee Cloud (Coffee + Cloud)',   desc: 'Coffee with a cloud of foam', price: 104, emoji: '🥤☁️' },
+    { id: 'hazelnut-drift',  name: 'Hazelnut Drift', desc: 'Hazelnut flavoured coffee', price: 114, emoji: '🥤🌰', badge: 'Best Seller' }
   ],
   // Secrets come from environment variables, never hard-code them here.
   staffPin: process.env.STAFF_PIN || '1234',
