@@ -5,33 +5,52 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Yanoi – Order & Grab</title>
 <style>
-:root{--bg:#fbf7ff;--card:#fff;--ink:#1b1030;--mute:#6f6585;--brand:#6c3bd1;--brand2:#ff7ab6;--ok:#159a5b;--warn:#e8590c;--line:#e9e1f5}
+:root{--bg:#fdf6ec;--card:#fffaf2;--ink:#3a1030;--mute:#8a6b7e;--brand:#c81e5c;--brand2:#ff8fab;--gold:#b8860b;--vermillion:#c0392b;--ok:#159a5b;--warn:#e8590c;--line:#f0d9b5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:110px}
-header{padding:22px 18px 18px;background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff}
-header h1{margin:0;font-size:28px;letter-spacing:.5px}
-header p{margin:6px 0 0;opacity:.95}
-.pill{display:inline-block;margin-top:10px;background:rgba(255,255,255,.22);padding:5px 12px;border-radius:99px;font-size:13px;font-weight:600}
+body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;color:var(--ink);padding-bottom:110px;
+  background-color:var(--bg);
+  background-image:
+    radial-gradient(circle at 0 50%, transparent 22px, var(--bg) 23px),
+    radial-gradient(circle at 40px 50%, transparent 22px, var(--bg) 23px);
+  background-size:40px 30px;background-position:0 0;}
+header{position:relative;overflow:hidden;padding:26px 18px 22px;border-bottom:4px solid var(--gold);background:
+  radial-gradient(circle at 15% 20%, rgba(255,255,255,.3) 0 6px, transparent 7px),
+  radial-gradient(circle at 85% 15%, rgba(255,255,255,.25) 0 5px, transparent 6px),
+  radial-gradient(circle at 70% 80%, rgba(255,255,255,.2) 0 7px, transparent 8px),
+  radial-gradient(circle at 30% 85%, rgba(255,255,255,.25) 0 4px, transparent 5px),
+  linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;text-align:center}
+.petal{position:absolute;font-size:20px;opacity:.5;animation:fall linear infinite}
+@keyframes fall{from{transform:translateY(-20px) rotate(0deg)}to{transform:translateY(180px) rotate(200deg)}}
+.kicker{font-size:13px;letter-spacing:3px;opacity:.9;font-weight:700}
+header h1{margin:4px 0 0;font-size:36px;letter-spacing:1px;font-weight:900;text-shadow:0 2px 0 rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;gap:10px}
+.stamp{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:#fff;border:2.5px solid var(--vermillion);box-shadow:0 2px 0 rgba(0,0,0,.15);font-size:22px;transform:rotate(-6deg)}
+header .jp{font-size:15px;opacity:.92;margin-top:2px;letter-spacing:2px}
+header p{margin:8px 0 0;opacity:.97;font-weight:600}
+.pill{display:inline-block;margin-top:10px;background:rgba(255,255,255,.25);padding:6px 14px;border-radius:99px;font-size:13px;font-weight:700;border:1px solid rgba(255,255,255,.4)}
+.bubbles{display:flex;justify-content:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+.bubble{background:#fff;color:var(--vermillion);font-weight:800;font-size:11px;padding:4px 10px;border-radius:99px;box-shadow:0 2px 0 rgba(0,0,0,.08)}
 main{max-width:520px;margin:0 auto;padding:16px}
 .notice{background:#fff3e6;border:1px solid #ffd8a8;color:#8a4b00;padding:12px 14px;border-radius:12px;margin-bottom:14px;font-weight:600}
-.item{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
-.item .em{font-size:34px}.item .t{flex:1}.item b{display:block;font-size:17px}.item small{color:var(--mute)}
-.price{font-weight:700;margin-top:4px}
+.item{position:relative;display:flex;align-items:center;gap:12px;background:var(--card);border:2px solid var(--line);border-radius:18px;padding:14px;margin-bottom:12px;box-shadow:0 2px 0 rgba(200,30,92,.06)}
+.item .em{font-size:32px;line-height:1}.item .t{flex:1}.item b{display:block;font-size:17px}.item small{color:var(--mute)}
+.badge{position:absolute;top:-9px;left:14px;background:var(--gold);color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:99px;letter-spacing:.5px;box-shadow:0 2px 0 rgba(0,0,0,.15)}
+.price{font-weight:800;margin-top:4px;color:var(--brand)}
 .qty{display:flex;align-items:center;gap:10px}
-.qty button{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:20px;line-height:1;color:var(--brand);font-weight:700}
+.qty button{width:36px;height:36px;border-radius:50%;border:2px solid var(--line);background:#fff;font-size:20px;line-height:1;color:var(--brand);font-weight:700}
 .qty button.add{background:var(--brand);color:#fff;border-color:var(--brand)}
 .qty span{min-width:16px;text-align:center;font-weight:700}
 .sold{opacity:.5}
-.bar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--line)}
-.bar button,.btn{width:100%;max-width:520px;display:block;margin:0 auto;padding:15px;border:0;border-radius:14px;background:var(--brand);color:#fff;font-size:17px;font-weight:700}
-.btn:disabled,.bar button:disabled{opacity:.45}
-.sheet{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}
+.bar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:#fffaf2;border-top:2px solid var(--line)}
+.bar button,.btn{width:100%;max-width:520px;display:block;margin:0 auto;padding:15px;border:0;border-radius:14px;background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;font-size:17px;font-weight:800;box-shadow:0 3px 0 rgba(200,30,92,.3)}
+.btn:disabled,.bar button:disabled{opacity:.45;box-shadow:none}
+.sheet{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px}
 .sheet h3{margin:0 0 10px}
 .row{display:flex;justify-content:space-between;padding:4px 0}
-input{width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;font-size:16px;margin-top:8px}
+input{width:100%;padding:13px;border:2px solid var(--line);border-radius:12px;font-size:16px;margin-top:8px;background:#fff}
 .err{color:#c92a2a;font-weight:600;margin:8px 0}
-.link{background:none;border:0;color:var(--brand);font-weight:600;padding:10px;width:100%}
+.link{background:none;border:0;color:var(--brand);font-weight:700;padding:10px;width:100%}
 .hidden{display:none}
+.divider{text-align:center;color:var(--gold);letter-spacing:6px;margin:6px 0 14px;opacity:.8}
 /* tracking */
 .track{text-align:center}
 .num{display:inline-block;background:var(--ink);color:#fff;border-radius:14px;padding:8px 22px;font-size:32px;font-weight:800;letter-spacing:1px}
@@ -47,9 +66,19 @@ input{width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;fo
 </head>
 <body>
 <header>
-  <h1 id="brand">Yanoi</h1>
+  <span class="petal" style="left:8%;animation-duration:6s">🌸</span>
+  <span class="petal" style="left:80%;animation-duration:7.5s;animation-delay:1s">🌸</span>
+  <span class="petal" style="left:45%;animation-duration:5.5s;animation-delay:2s">🌸</span>
+  <span class="petal" style="left:65%;animation-duration:8s;animation-delay:.5s">🌸</span>
+  <div class="kicker">ヤノイ・カフェ</div>
+  <h1><span id="brand">Yanoi</span> <span class="stamp">🐧</span></h1>
+  <div class="jp">コーヒー・デザート・くじ引き</div>
   <p>Order here, grab it at the door.</p>
   <span class="pill" id="promise">⏱ Ready in 5 minutes</span>
+  <div class="bubbles">
+    <span class="bubble">かわいい! KAWAII</span>
+    <span class="bubble">おいしい! OISHII</span>
+  </div>
 </header>
 <main>
   <div id="menuView">
@@ -99,6 +128,7 @@ async function loadMenu(){
 function renderItems(){
   $('#items').innerHTML = menu.items.map(m => `
     <div class="item ${m.soldOut?'sold':''}">
+      ${m.badge && !m.soldOut ? `<span class="badge">🌸 ${m.badge}</span>` : ''}
       <div class="em">${m.emoji}</div>
       <div class="t"><b>${m.name}</b><small>${m.desc}</small><div class="price">${rupee(m.price)}</div></div>
       <div class="qty">${m.soldOut ? '<small>Sold out</small>' :
