@@ -1,0 +1,9 @@
+{
+  "name": "yanoi-order",
+  "version": "1.0.0",
+  "description": "QR order-and-collect system for Yanoi (5-minute promise)",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "express": "^4.19.2", "qrcode": "^1.5.3" }
+}
