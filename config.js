@@ -6,7 +6,7 @@ module.exports = {
   maxActiveOrders: 8,           // orders being made at once; above this the page says "busy"
   pendingExpiryMinutes: 15,     // unpaid checkouts are dropped after this long
   menu: [
-    { id: 'noi-cold-coffee', name: 'Noi Cold Coffee (Classic)',       desc: 'Signature cold coffee',   price: 83, emoji: '🥤' },
+    { id: 'noi-cold-coffee', name: 'Noi Cold Coffee (Classic)',       desc: 'Signature cold coffee',   price: 1, emoji: '🥤' },
     { id: 'coffee-cloud',    name: 'Coffee Cloud (Coffee + Cloud)',   desc: 'Coffee with a cloud of foam', price: 104, emoji: '🥤☁️' },
     { id: 'hazelnut-drift',  name: 'Hazelnut Drift', desc: 'Hazelnut flavoured coffee', price: 114, emoji: '🥤🌰', badge: 'Best Seller' }
   ],
