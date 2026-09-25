@@ -48,7 +48,6 @@ button.ok{background:var(--ok);color:#052e16}button.off{background:var(--bad)}
     <div class="stat">Avg prep<b id="sAvg">–</b></div>
     <div class="stat">On time<b id="sOn">–</b></div>
     <button id="openBtn" class="ok">Taking orders</button>
-    <button class="ghost" id="sound">🔔 Sound off</button>
   </div>
   <div class="menuRow" id="menuRow"></div>
   <div id="demoBanner" class="hidden" style="background:#78350f;padding:8px 16px;font-weight:600">DEMO MODE: payments are simulated. Set Razorpay keys to go live.</div>
@@ -61,7 +60,7 @@ button.ok{background:var(--ok);color:#052e16}button.off{background:var(--bad)}
 
 <script>
 const $ = s => document.querySelector(s);
-let pin = sessionStorage.getItem('pin') || '', snap = null, offset = 0, es = null, soundOn = false, known = new Set(), first = true, audioCtx = null;
+let pin = sessionStorage.getItem('pin') || '', snap = null, offset = 0, es = null, soundOn = true, known = new Set(), first = true, audioCtx = null;
 const rupee = n => '₹' + n.toLocaleString('en-IN');
 const api = (p, body) => fetch(p, { method:'POST', headers:{'Content-Type':'application/json','x-staff-pin':pin}, body:JSON.stringify(body) });
 
@@ -79,13 +78,12 @@ async function login(p){
   const r = await fetch('/api/staff/check', { headers:{'x-staff-pin':p} });
   if(!r.ok){ $('#lerr').textContent = 'Wrong PIN'; return; }
   pin = p; sessionStorage.setItem('pin', p);
-  soundOn = true; $('#sound').textContent = '🔔 Sound on';
   $('#login').classList.add('hidden'); $('#app').classList.remove('hidden'); connect();
   beep(); // quick confirmation blip so staff know sound is live
 }
 $('#go').onclick = () => { unlockAudio(); login($('#pin').value); };
 $('#pin').addEventListener('keydown', e => { if(e.key==='Enter'){ unlockAudio(); login($('#pin').value); } });
-if(pin){ soundOn = true; login(pin); } // page was reloaded while already logged in this browser tab
+if(pin) login(pin); // page was reloaded while already logged in this browser tab
 
 function connect(){
   if(es) es.close();
@@ -122,7 +120,6 @@ function beep(){
     });
   }catch(_){}
 }
-$('#sound').onclick = () => { unlockAudio(); soundOn = !soundOn; $('#sound').textContent = soundOn ? '🔔 Sound on' : '🔔 Sound off'; beep(); };
 
 function card(o, btnLabel, next){
   const items = o.items.map(i => `${i.qty} × ${i.name}`).join('<br>');
