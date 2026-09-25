@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Yanoi – Staff</title>
+<style>
+:root{--bg:#14101f;--card:#211a33;--ink:#f5f1ff;--mute:#a79fc0;--brand:#8b5cf6;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444;--line:#352b50}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 16px;background:#0d0a16;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.top h1{margin:0;font-size:20px;flex:1;min-width:120px}
+.stat{background:var(--card);border-radius:10px;padding:6px 12px;font-size:13px;color:var(--mute)}.stat b{display:block;font-size:18px;color:var(--ink)}
+button{border:0;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:700;color:#fff;background:var(--brand);cursor:pointer}
+button.ghost{background:var(--card);border:1px solid var(--line);color:var(--ink)}
+button.ok{background:var(--ok);color:#052e16}button.off{background:var(--bad)}
+.cols{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:14px}
+@media(max-width:800px){.cols{grid-template-columns:1fr}}
+.col h2{margin:0 0 10px;font-size:15px;color:var(--mute);text-transform:uppercase;letter-spacing:1px}
+.card{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.card.soon{border-color:var(--warn)}.card.late{border-color:var(--bad);animation:pulse 1s infinite}
+@keyframes pulse{50%{background:#3a1a24}}
+.card .h{display:flex;justify-content:space-between;align-items:center}
+.n{font-size:30px;font-weight:800}.t{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums}
+.t.soon{color:var(--warn)}.t.late{color:var(--bad)}.t.done{color:var(--ok)}
+.items{margin:8px 0;font-size:18px;line-height:1.5}.meta{color:var(--mute);font-size:13px;margin-bottom:10px}
+.card button{width:100%;font-size:17px;padding:13px}
+.empty{color:var(--mute);padding:10px}
+.menuRow{display:flex;flex-wrap:wrap;gap:8px;padding:0 16px 8px}
+#login{max-width:320px;margin:20vh auto;text-align:center}
+#login input{width:100%;padding:14px;font-size:22px;text-align:center;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);letter-spacing:6px;margin:12px 0}
+.hidden{display:none}.conn{font-size:12px;color:var(--mute)}
+</style>
+</head>
+<body>
+<div id="login">
+  <h1>Yanoi Staff</h1>
+  <input id="pin" type="password" inputmode="numeric" placeholder="PIN" autofocus>
+  <button id="go" style="width:100%">Enter</button>
+  <div id="lerr" style="color:#fca5a5;margin-top:10px"></div>
+</div>
+
+<div id="app" class="hidden">
+  <div class="top">
+    <h1>Yanoi Orders <span class="conn" id="conn"></span></h1>
+    <div class="stat">Today<b id="sOrders">0</b></div>
+    <div class="stat">Revenue<b id="sRev">₹0</b></div>
+    <div class="stat">Avg prep<b id="sAvg">–</b></div>
+    <div class="stat">On time<b id="sOn">–</b></div>
+    <button id="openBtn" class="ok">Taking orders</button>
+    <button class="ghost" id="sound">🔔 Sound off</button>
+  </div>
+  <div class="menuRow" id="menuRow"></div>
+  <div id="demoBanner" class="hidden" style="background:#78350f;padding:8px 16px;font-weight:600">DEMO MODE: payments are simulated. Set Razorpay keys to go live.</div>
+  <div class="cols">
+    <div class="col"><h2>New (paid)</h2><div id="cNew"></div></div>
+    <div class="col"><h2>Preparing</h2><div id="cPrep"></div></div>
+    <div class="col"><h2>Ready at door</h2><div id="cReady"></div></div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let pin = sessionStorage.getItem('pin') || '', snap = null, offset = 0, es = null, soundOn = false, known = new Set(), first = true;
+const rupee = n => '₹' + n.toLocaleString('en-IN');
+const api = (p, body) => fetch(p, { method:'POST', headers:{'Content-Type':'application/json','x-staff-pin':pin}, body:JSON.stringify(body) });
+
+async function login(p){
+  const r = await fetch('/api/staff/check', { headers:{'x-staff-pin':p} });
+  if(!r.ok){ $('#lerr').textContent = 'Wrong PIN'; return; }
+  pin = p; sessionStorage.setItem('pin', p);
+  $('#login').classList.add('hidden'); $('#app').classList.remove('hidden'); connect();
+}
+$('#go').onclick = () => login($('#pin').value);
+$('#pin').addEventListener('keydown', e => { if(e.key==='Enter') login($('#pin').value); });
+if(pin) login(pin);
+
+function connect(){
+  if(es) es.close();
+  es = new EventSource('/api/staff/stream?pin=' + encodeURIComponent(pin));
+  es.onopen = () => $('#conn').textContent = '● live';
+  es.onerror = () => $('#conn').textContent = '○ reconnecting…';
+  es.addEventListener('snapshot', e => { snap = JSON.parse(e.data); offset = snap.now - Date.now(); render(); });
+}
+function beep(){
+  if(!soundOn) return;
+  try{ const c = new (window.AudioContext||window.webkitAudioContext)(); [0,.18].forEach(d=>{ const o=c.createOscillator(),g=c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value=880; g.gain.value=.2; o.start(c.currentTime+d); o.stop(c.currentTime+d+.12); }); }catch(_){}
+}
+$('#sound').onclick = () => { soundOn = !soundOn; $('#sound').textContent = soundOn ? '🔔 Sound on' : '🔔 Sound off'; beep(); };
+
+function card(o, btnLabel, next){
+  const items = o.items.map(i => `${i.qty} × ${i.name}`).join('<br>');
+  const timer = o.status==='ready' ? '' : `<div class="t" data-due="${o.dueAt}">–</div>`;
+  return `<div class="card" data-due="${o.status==='ready'?'':o.dueAt}" id="c${o.id}">
+    <div class="h"><span class="n">#${o.number}</span>${timer}</div>
+    <div class="items">${items}</div>
+    <div class="meta">${o.name} · ${o.phone}</div>
+    <button data-id="${o.id}" data-next="${next}" class="${next==='collected'?'ghost':''}">${btnLabel}</button></div>`;
+}
+function render(){
+  $('#sOrders').textContent = snap.stats.orders;
+  $('#sRev').textContent = rupee(snap.stats.revenue);
+  $('#sAvg').textContent = snap.stats.avgPrepSec==null ? '–' : Math.floor(snap.stats.avgPrepSec/60)+':'+String(snap.stats.avgPrepSec%60).padStart(2,'0');
+  $('#sOn').textContent = snap.stats.onTimePct==null ? '–' : snap.stats.onTimePct + '%';
+  $('#demoBanner').classList.toggle('hidden', !snap.demo);
+  const ob = $('#openBtn'); ob.textContent = snap.open ? 'Taking orders' : 'Paused'; ob.className = snap.open ? 'ok' : 'off';
+  $('#menuRow').innerHTML = snap.menu.map(m => `<button class="ghost" data-sold="${m.id}" data-v="${!m.soldOut}">${m.name}: ${m.soldOut ? '❌ sold out' : '✅ available'}</button>`).join('');
+  const by = s => snap.live.filter(o => o.status===s);
+  const fill = (id, arr, label, next) => $(id).innerHTML = arr.length ? arr.map(o => card(o, label, next)).join('') : '<div class="empty">Nothing here</div>';
+  fill('#cNew', by('paid'), 'Start making', 'preparing');
+  fill('#cPrep', by('preparing'), 'Mark ready', 'ready');
+  fill('#cReady', by('ready'), 'Collected', 'collected');
+  const ids = new Set(snap.live.map(o => o.id));
+  if(!first && snap.live.some(o => o.status==='paid' && !known.has(o.id))) beep();
+  known = ids; first = false; drawTimers();
+}
+function drawTimers(){
+  if(!snap) return;
+  const now = Date.now() + offset;
+  document.querySelectorAll('.card').forEach(c => {
+    const due = +c.dataset.due; if(!due) return;
+    const left = Math.round((due - now)/1000), t = c.querySelector('.t');
+    const a = Math.abs(left), txt = (left<0?'-':'') + Math.floor(a/60) + ':' + String(a%60).padStart(2,'0');
+    t.textContent = txt;
+    const cls = left < 0 ? 'late' : left <= 90 ? 'soon' : '';
+    c.className = 'card ' + cls; t.className = 't ' + cls;
+  });
+}
+setInterval(drawTimers, 500);
+
+document.addEventListener('click', async e => {
+  const b = e.target.closest('button'); if(!b) return;
+  if(b.dataset.next) await api(`/api/staff/orders/${b.dataset.id}/status`, { status:b.dataset.next });
+  if(b.dataset.sold) await api('/api/staff/soldout', { id:b.dataset.sold, soldOut:b.dataset.v==='true' });
+});
+$('#openBtn').onclick = () => api('/api/staff/open', { open: !snap.open });
+</script>
+</body>
+</html>

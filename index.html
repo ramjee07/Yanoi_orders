@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Yanoi – Order & Grab</title>
+<style>
+:root{--bg:#fbf7ff;--card:#fff;--ink:#1b1030;--mute:#6f6585;--brand:#6c3bd1;--brand2:#ff7ab6;--ok:#159a5b;--warn:#e8590c;--line:#e9e1f5}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:110px}
+header{padding:22px 18px 18px;background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff}
+header h1{margin:0;font-size:28px;letter-spacing:.5px}
+header p{margin:6px 0 0;opacity:.95}
+.pill{display:inline-block;margin-top:10px;background:rgba(255,255,255,.22);padding:5px 12px;border-radius:99px;font-size:13px;font-weight:600}
+main{max-width:520px;margin:0 auto;padding:16px}
+.notice{background:#fff3e6;border:1px solid #ffd8a8;color:#8a4b00;padding:12px 14px;border-radius:12px;margin-bottom:14px;font-weight:600}
+.item{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.item .em{font-size:34px}.item .t{flex:1}.item b{display:block;font-size:17px}.item small{color:var(--mute)}
+.price{font-weight:700;margin-top:4px}
+.qty{display:flex;align-items:center;gap:10px}
+.qty button{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:20px;line-height:1;color:var(--brand);font-weight:700}
+.qty button.add{background:var(--brand);color:#fff;border-color:var(--brand)}
+.qty span{min-width:16px;text-align:center;font-weight:700}
+.sold{opacity:.5}
+.bar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--line)}
+.bar button,.btn{width:100%;max-width:520px;display:block;margin:0 auto;padding:15px;border:0;border-radius:14px;background:var(--brand);color:#fff;font-size:17px;font-weight:700}
+.btn:disabled,.bar button:disabled{opacity:.45}
+.sheet{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}
+.sheet h3{margin:0 0 10px}
+.row{display:flex;justify-content:space-between;padding:4px 0}
+input{width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;font-size:16px;margin-top:8px}
+.err{color:#c92a2a;font-weight:600;margin:8px 0}
+.link{background:none;border:0;color:var(--brand);font-weight:600;padding:10px;width:100%}
+.hidden{display:none}
+/* tracking */
+.track{text-align:center}
+.num{display:inline-block;background:var(--ink);color:#fff;border-radius:14px;padding:8px 22px;font-size:32px;font-weight:800;letter-spacing:1px}
+.clock{font-size:84px;font-weight:800;font-variant-numeric:tabular-nums;margin:14px 0 4px;color:var(--brand)}
+.clock.late{color:var(--warn)}.clock.done{color:var(--ok)}
+.status{font-size:19px;font-weight:700}
+.steps{display:flex;margin:22px 0}
+.steps div{flex:1;font-size:13px;color:var(--mute);position:relative;padding-top:22px}
+.steps div:before{content:"";position:absolute;top:0;left:50%;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:var(--line)}
+.steps div.on{color:var(--ink);font-weight:700}.steps div.on:before{background:var(--brand)}
+.big-ok{background:#e6f8ef;border:2px solid var(--ok);border-radius:16px;padding:16px;margin:10px 0;font-size:18px;font-weight:700;color:#0b6b3f}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="brand">Yanoi</h1>
+  <p>Order here, grab it at the door.</p>
+  <span class="pill" id="promise">⏱ Ready in 5 minutes</span>
+</header>
+<main>
+  <div id="menuView">
+    <div id="notice" class="notice hidden"></div>
+    <div id="items"></div>
+    <div id="checkout" class="sheet hidden">
+      <h3>Your details</h3>
+      <div id="summary"></div>
+      <input id="name" placeholder="Your name" autocomplete="name" maxlength="40">
+      <input id="phone" placeholder="Mobile number (10 digits)" inputmode="numeric" autocomplete="tel" maxlength="14">
+      <div id="err" class="err hidden"></div>
+      <button class="link" id="back">← Edit order</button>
+    </div>
+  </div>
+
+  <div id="trackView" class="hidden track">
+    <div class="sheet">
+      <div style="color:var(--mute);font-weight:600">Your order number</div>
+      <div class="num" id="tNum">#000</div>
+      <div class="clock" id="clock">5:00</div>
+      <div class="status" id="tStatus"></div>
+      <div class="steps" id="steps"><div data-s="paid">Paid</div><div data-s="preparing">Preparing</div><div data-s="ready">Ready</div></div>
+      <div id="readyBox" class="big-ok hidden">Your order is ready! Come to the door and show order <span id="rn"></span>.</div>
+      <div id="tItems" style="text-align:left;margin-top:8px"></div>
+    </div>
+    <button class="link" id="newOrder">Place another order</button>
+  </div>
+</main>
+<div class="bar" id="bar"><button id="cta" disabled>Add items to order</button></div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
+<script>
+const $ = s => document.querySelector(s);
+const rupee = n => '₹' + n;
+let menu = null, cart = {}, stage = 'menu', currentOrder = null, offset = 0, es = null, tick = null;
+const store = { get(k){ try{return localStorage.getItem(k)}catch(_){return null} }, set(k,v){ try{localStorage.setItem(k,v)}catch(_){} }, del(k){ try{localStorage.removeItem(k)}catch(_){} } };
+
+async function loadMenu(){
+  menu = await (await fetch('/api/menu')).json();
+  $('#brand').textContent = menu.brand;
+  $('#promise').textContent = '⏱ Ready in ' + Math.round(menu.promiseSeconds/60) + ' minutes';
+  const n = $('#notice');
+  if(!menu.accepting){ n.classList.remove('hidden'); n.textContent = menu.reason==='closed' ? 'We are not taking orders right now.' : 'We are very busy right now. Please check again in a couple of minutes.'; }
+  else n.classList.add('hidden');
+  renderItems(); renderBar();
+}
+function renderItems(){
+  $('#items').innerHTML = menu.items.map(m => `
+    <div class="item ${m.soldOut?'sold':''}">
+      <div class="em">${m.emoji}</div>
+      <div class="t"><b>${m.name}</b><small>${m.desc}</small><div class="price">${rupee(m.price)}</div></div>
+      <div class="qty">${m.soldOut ? '<small>Sold out</small>' :
+        (cart[m.id] ? `<button data-a="-" data-id="${m.id}">−</button><span>${cart[m.id]}</span><button data-a="+" data-id="${m.id}">+</button>`
+                    : `<button class="add" data-a="+" data-id="${m.id}">+</button>`)}</div>
+    </div>`).join('');
+}
+$('#items').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  const id = b.dataset.id, total = Object.values(cart).reduce((a,c)=>a+c,0);
+  if(b.dataset.a==='+'){ if(total>=10) return; cart[id]=(cart[id]||0)+1; }
+  else { cart[id]=(cart[id]||1)-1; if(!cart[id]) delete cart[id]; }
+  renderItems(); renderBar();
+});
+const cartTotal = () => menu.items.reduce((s,m)=>s+(cart[m.id]||0)*m.price,0);
+const cartCount = () => Object.values(cart).reduce((a,c)=>a+c,0);
+function renderBar(){
+  const cta = $('#cta'), n = cartCount();
+  if(stage==='menu'){
+    cta.disabled = !n || !menu.accepting;
+    cta.textContent = n ? `Continue · ${n} item${n>1?'s':''} · ${rupee(cartTotal())}` : 'Add items to order';
+  } else {
+    cta.disabled = false; cta.textContent = `Pay ${rupee(cartTotal())} with UPI`;
+  }
+}
+function showErr(m){ const e=$('#err'); e.textContent=m; e.classList.toggle('hidden',!m); }
+
+$('#cta').onclick = async () => {
+  if(stage==='menu'){
+    stage='checkout';
+    $('#summary').innerHTML = menu.items.filter(m=>cart[m.id]).map(m=>`<div class="row"><span>${cart[m.id]} × ${m.name}</span><span>${rupee(cart[m.id]*m.price)}</span></div>`).join('') + `<div class="row"><b>Total</b><b>${rupee(cartTotal())}</b></div>`;
+    $('#items').classList.add('hidden'); $('#notice').classList.add('hidden'); $('#checkout').classList.remove('hidden');
+    $('#name').value = store.get('yn_name')||''; $('#phone').value = store.get('yn_phone')||'';
+    renderBar(); scrollTo(0,0); return;
+  }
+  const btn = $('#cta'); btn.disabled = true; showErr('');
+  const name = $('#name').value.trim(), phone = $('#phone').value.trim();
+  store.set('yn_name',name); store.set('yn_phone',phone);
+  try{
+    const r = await fetch('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name,phone,items:Object.entries(cart).map(([id,qty])=>({id,qty}))})});
+    const j = await r.json();
+    if(!r.ok){ showErr(j.error||'Could not place order'); btn.disabled=false; return; }
+    if(j.payment.demo){
+      if(!confirm('DEMO MODE: no real payment. Tap OK to simulate a successful UPI payment.')){ btn.disabled=false; return; }
+      const p = await fetch(`/api/orders/${j.id}/demo-pay`,{method:'POST'}); startTracking((await p.json()));
+      return;
+    }
+    const rzp = new Razorpay({
+      key: j.payment.keyId, amount: j.payment.amount, currency:'INR', order_id: j.payment.razorpayOrderId,
+      name: menu.brand, description: 'Order & grab', prefill:{ name, contact: phone },
+      theme:{ color:'#6c3bd1' },
+      handler: async resp => {
+        const v = await fetch(`/api/orders/${j.id}/verify`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(resp)});
+        const vj = await v.json();
+        if(v.ok) startTracking(vj); else { showErr(vj.error); btn.disabled=false; }
+      },
+      modal:{ ondismiss: () => { btn.disabled=false; } }
+    });
+    store.set('yn_pending', j.id);
+    rzp.on('payment.failed', () => { showErr('Payment failed. Please try again.'); btn.disabled=false; });
+    rzp.open();
+  }catch(e){ showErr('Network problem. Please try again.'); btn.disabled=false; }
+};
+$('#back').onclick = () => { stage='menu'; $('#checkout').classList.add('hidden'); $('#items').classList.remove('hidden'); loadMenu(); };
+
+/* ---------- tracking ---------- */
+function startTracking(o){
+  store.set('yn_order', o.id); store.del('yn_pending');
+  $('#menuView').classList.add('hidden'); $('#trackView').classList.remove('hidden'); $('#bar').classList.add('hidden');
+  applyOrder(o);
+  if(es) es.close();
+  es = new EventSource(`/api/orders/${o.id}/stream`);
+  es.addEventListener('order', e => applyOrder(JSON.parse(e.data)));
+  clearInterval(tick); tick = setInterval(drawClock, 250);
+}
+function applyOrder(o){
+  currentOrder = o; offset = o.now - Date.now();
+  $('#tNum').textContent = '#'+o.number;
+  $('#rn').textContent = '#'+o.number;
+  $('#tItems').innerHTML = o.items.map(i=>`<div class="row"><span>${i.qty} × ${i.name}</span></div>`).join('');
+  const order = ['paid','preparing','ready','collected'], idx = order.indexOf(o.status);
+  document.querySelectorAll('#steps div').forEach(d => d.classList.toggle('on', order.indexOf(d.dataset.s) <= idx));
+  const msg = {paid:'Order received. We are on it!', preparing:'Making your order…', ready:'Ready at the door!', collected:'Collected. Enjoy!'};
+  $('#tStatus').textContent = msg[o.status]||'';
+  $('#readyBox').classList.toggle('hidden', o.status!=='ready');
+  drawClock();
+}
+function drawClock(){
+  const o = currentOrder; if(!o) return;
+  const c = $('#clock');
+  if(o.status==='ready' || o.status==='collected'){
+    const t = Math.max(0, Math.round(((o.readyAt||o.dueAt) - o.paidAt)/1000));
+    c.textContent = Math.floor(t/60)+':'+String(t%60).padStart(2,'0'); c.className='clock done'; return;
+  }
+  const left = Math.round((o.dueAt - (Date.now()+offset))/1000);
+  if(left>=0){ c.textContent = Math.floor(left/60)+':'+String(left%60).padStart(2,'0'); c.className='clock'; }
+  else { c.textContent='Almost there'; c.style.fontSize='40px'; c.className='clock late'; return; }
+  c.style.fontSize='';
+}
+$('#newOrder').onclick = () => { store.del('yn_order'); if(es) es.close(); clearInterval(tick); currentOrder=null; cart={}; stage='menu';
+  $('#trackView').classList.add('hidden'); $('#menuView').classList.remove('hidden'); $('#bar').classList.remove('hidden');
+  $('#checkout').classList.add('hidden'); $('#items').classList.remove('hidden'); loadMenu(); };
+
+/* ---------- boot: resume an in-progress order after refresh ---------- */
+(async function(){
+  await loadMenu();
+  const id = new URLSearchParams(location.search).get('o') || store.get('yn_order') || store.get('yn_pending');
+  if(id){
+    const r = await fetch('/api/orders/'+id);
+    if(r.ok){ const o = await r.json(); if(o.number && o.status!=='collected') startTracking(o); }
+  }
+})();
+</script>
+</body>
+</html>
