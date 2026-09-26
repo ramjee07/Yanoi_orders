@@ -4,11 +4,11 @@ const fs = require('fs');
 const path = require('path');
 const QRCode = require('qrcode');
 const config = require('./config');
-
+ 
 const DEMO = !(config.razorpayKeyId && config.razorpayKeySecret);
 const DATA_FILE = path.join(process.env.DATA_DIR || path.join(__dirname, 'data'), 'orders.json');
 fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-
+ 
 // ---------- storage (single JSON file, fine for one outlet) ----------
 let state = { orders: {}, counter: 100, day: '', open: true, soldOut: {} };
 try { state = { ...state, ...JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')) }; } catch (_) {}
@@ -23,13 +23,14 @@ function save() {
 const istDay = (t = Date.now()) => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 const ACTIVE = ['paid', 'preparing', 'ready'];
 const activeCount = () => Object.values(state.orders).filter(o => ACTIVE.includes(o.status) && o.status !== 'ready').length;
-
+ 
 // ---------- live updates (SSE) ----------
 const staffClients = new Set();
 const customerClients = new Map(); // orderId -> Set(res)
 function sse(res, event, data) { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); }
 function publicView(o) {
   return { id: o.id, number: o.number, status: o.status, items: o.items, total: o.total, name: o.name,
+           vehicleType: o.vehicleType, vehiclePlate: o.vehiclePlate,
            paidAt: o.paidAt, dueAt: o.dueAt, readyAt: o.readyAt, promiseSeconds: config.promiseSeconds, now: Date.now() };
 }
 function staffSnapshot() {
@@ -59,7 +60,7 @@ function broadcast(order) {
   if (order) for (const r of customerClients.get(order.id) || []) sse(r, 'order', publicView(order));
 }
 setInterval(() => { for (const r of staffClients) r.write(': ping\n\n'); for (const s of customerClients.values()) for (const r of s) r.write(': ping\n\n'); }, 25000);
-
+ 
 // ---------- helpers ----------
 function markPaid(order, paymentId) {
   if (order.paidAt) return order; // idempotent (verify + webhook can both arrive)
@@ -99,11 +100,11 @@ setInterval(() => { // drop abandoned checkouts
   for (const o of Object.values(state.orders)) if (o.status === 'pending_payment' && o.createdAt < cutoff) { o.status = 'expired'; changed = true; }
   if (changed) save();
 }, 60000);
-
+ 
 // ---------- app ----------
 const app = express();
 app.set('trust proxy', 1);
-
+ 
 // Razorpay webhook needs the raw body for signature checking
 app.post('/api/webhook/razorpay', express.raw({ type: '*/*' }), (req, res) => {
   if (!config.razorpayWebhookSecret) return res.status(200).end();
@@ -120,10 +121,10 @@ app.post('/api/webhook/razorpay', express.raw({ type: '*/*' }), (req, res) => {
   } catch (_) {}
   res.status(200).end();
 });
-
+ 
 app.use(express.json({ limit: '20kb' }));
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
-
+ 
 app.get('/api/menu', (req, res) => {
   const n = activeCount();
   res.json({
@@ -134,18 +135,22 @@ app.get('/api/menu', (req, res) => {
     items: config.menu.map(m => ({ ...m, soldOut: !!state.soldOut[m.id] }))
   });
 });
-
+ 
 app.post('/api/orders', rateLimit(10, 60000), async (req, res) => {
   try {
     if (!state.open) return res.status(409).json({ error: 'We are not taking orders right now.' });
     if (activeCount() >= config.maxActiveOrders) return res.status(409).json({ error: 'We are very busy right now. Please try again in a couple of minutes.' });
-    const { items, name, phone } = req.body || {};
+    const { items, name, phone, vehicleType, vehiclePlate } = req.body || {};
     const cleanName = String(name || '').trim().slice(0, 40);
     const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
+    const cleanVehicleType = ['2w', '4w'].includes(vehicleType) ? vehicleType : null;
+    const cleanPlate = String(vehiclePlate || '').replace(/\D/g, '').slice(0, 4);
     if (!cleanName) return res.status(400).json({ error: 'Please enter your name.' });
     if (!/^[6-9]\d{9}$/.test(cleanPhone)) return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.' });
+    if (!cleanVehicleType) return res.status(400).json({ error: 'Please select your vehicle type.' });
+    if (!/^\d{4}$/.test(cleanPlate)) return res.status(400).json({ error: 'Please enter the last 4 digits of your vehicle number.' });
     if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Your cart is empty.' });
-
+ 
     const lines = []; let total = 0, qtyTotal = 0;
     for (const it of items) {
       const m = config.menu.find(x => x.id === it.id);
@@ -155,9 +160,9 @@ app.post('/api/orders', rateLimit(10, 60000), async (req, res) => {
       lines.push({ id: m.id, name: m.name, qty, price: m.price }); total += m.price * qty; qtyTotal += qty;
     }
     if (qtyTotal > 10) return res.status(400).json({ error: 'Maximum 10 items per order.' });
-
+ 
     const order = { id: crypto.randomBytes(9).toString('base64url'), status: 'pending_payment', items: lines, total,
-                    name: cleanName, phone: cleanPhone, createdAt: Date.now() };
+                    name: cleanName, phone: cleanPhone, vehicleType: cleanVehicleType, vehiclePlate: cleanPlate, createdAt: Date.now() };
     let payment;
     if (DEMO) {
       payment = { demo: true };
@@ -177,7 +182,7 @@ app.post('/api/orders', rateLimit(10, 60000), async (req, res) => {
     res.json({ id: order.id, total, payment });
   } catch (e) { console.error(e); res.status(500).json({ error: 'Something went wrong.' }); }
 });
-
+ 
 app.post('/api/orders/:id/verify', (req, res) => {
   const o = state.orders[req.params.id];
   if (!o || DEMO) return res.status(404).json({ error: 'Not found' });
@@ -187,19 +192,19 @@ app.post('/api/orders/:id/verify', (req, res) => {
   markPaid(o, pid);
   res.json(publicView(o));
 });
-
+ 
 app.post('/api/orders/:id/demo-pay', (req, res) => {
   const o = state.orders[req.params.id];
   if (!DEMO || !o) return res.status(404).json({ error: 'Not found' });
   markPaid(o, 'demo'); res.json(publicView(o));
 });
-
+ 
 app.get('/api/orders/:id', (req, res) => {
   const o = state.orders[req.params.id];
   if (!o) return res.status(404).json({ error: 'Not found' });
   res.json(publicView(o));
 });
-
+ 
 app.get('/api/orders/:id/stream', (req, res) => {
   const o = state.orders[req.params.id];
   if (!o) return res.status(404).end();
@@ -209,7 +214,7 @@ app.get('/api/orders/:id/stream', (req, res) => {
   customerClients.get(o.id).add(res);
   req.on('close', () => { const s = customerClients.get(o.id); if (s) { s.delete(res); if (!s.size) customerClients.delete(o.id); } });
 });
-
+ 
 // ---- staff ----
 app.get('/api/staff/check', staffAuth, (req, res) => res.json({ ok: true }));
 app.get('/api/staff/stream', staffAuth, (req, res) => {
@@ -231,7 +236,7 @@ app.post('/api/staff/soldout', staffAuth, (req, res) => {
   if (!config.menu.find(m => m.id === id)) return res.status(400).json({ error: 'Bad item' });
   state.soldOut[id] = !!soldOut; save(); broadcast(); res.json({ ok: true });
 });
-
+ 
 // ---- QR code + printable poster ----
 app.get('/qr.png', async (req, res) => {
   res.type('png').send(await QRCode.toBuffer(config.baseUrl, { width: 900, margin: 2, errorCorrectionLevel: 'H' }));
@@ -246,9 +251,10 @@ app.get('/poster', async (req, res) => {
   <div class="p"><div><h1>${config.brand}</h1><h2>Scan. Order. Grab it in ${Math.round(config.promiseSeconds / 60)} minutes.</h2></div>
   <div class="q">${svg}</div><div class="b">Pay by UPI · Collect at the door</div><p>${config.baseUrl}</p></div>`);
 });
-
+ 
 app.get('/staff', (req, res) => res.sendFile(path.join(__dirname, 'public', 'staff.html')));
 app.listen(config.port, () => {
   console.log(`Yanoi ordering running on port ${config.port}  (${DEMO ? 'DEMO payments - set Razorpay keys for live UPI' : 'LIVE Razorpay payments'})`);
   console.log(`Customer page: ${config.baseUrl}   Staff screen: ${config.baseUrl}/staff   QR poster: ${config.baseUrl}/poster`);
 });
+ 
