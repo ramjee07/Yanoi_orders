@@ -124,10 +124,11 @@ function beep(){
 function card(o, btnLabel, next){
   const items = o.items.map(i => `${i.qty} × ${i.name}`).join('<br>');
   const timer = o.status==='ready' ? '' : `<div class="t" data-due="${o.dueAt}">–</div>`;
+  const vehicle = o.vehicleType ? `${o.vehicleType==='2w'?'🛵 2-wheeler':'🚗 4-wheeler'} · plate ****${o.vehiclePlate||'—'}` : '';
   return `<div class="card" data-due="${o.status==='ready'?'':o.dueAt}" id="c${o.id}">
     <div class="h"><span class="n">#${o.number}</span>${timer}</div>
     <div class="items">${items}</div>
-    <div class="meta">${o.name} · ${o.phone}</div>
+    <div class="meta">${o.name} · ${o.phone}${vehicle ? '<br>'+vehicle : ''}</div>
     <button data-id="${o.id}" data-next="${next}" class="${next==='collected'?'ghost':''}">${btnLabel}</button></div>`;
 }
 function render(){
