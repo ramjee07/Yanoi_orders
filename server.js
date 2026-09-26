@@ -237,6 +237,36 @@ app.post('/api/staff/soldout', staffAuth, (req, res) => {
   state.soldOut[id] = !!soldOut; save(); broadcast(); res.json({ ok: true });
 });
  
+// ---- customer + order records (every paid order, kept forever in DATA_FILE) ----
+function historyRow(o) {
+  return {
+    number: o.number,
+    date: istDay(o.paidAt),
+    time: new Date(o.paidAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' }),
+    name: o.name, phone: o.phone,
+    vehicle: o.vehicleType === 'walk' ? 'Walk-in' : o.vehicleType === '2w' ? '2-Wheeler' : o.vehicleType === '4w' ? '4-Wheeler' : '',
+    plate: o.vehiclePlate || '',
+    items: o.items.map(i => `${i.qty}x ${i.name}`).join(', '),
+    total: o.total, status: o.status, paidAt: o.paidAt
+  };
+}
+app.get('/api/staff/orders/history', staffAuth, (req, res) => {
+  const all = Object.values(state.orders).filter(o => o.paidAt).sort((a, b) => b.paidAt - a.paidAt);
+  res.json(all.map(historyRow));
+});
+app.get('/api/staff/orders/export.csv', staffAuth, (req, res) => {
+  const all = Object.values(state.orders).filter(o => o.paidAt).sort((a, b) => a.paidAt - b.paidAt);
+  const esc = s => `"${String(s == null ? '' : s).replace(/"/g, '""')}"`;
+  const header = ['Order #', 'Date', 'Time', 'Name', 'Phone', 'Vehicle', 'Plate (last 4)', 'Items', 'Total (Rs)', 'Status'];
+  const rows = [header.map(esc).join(',')];
+  for (const o of all) {
+    const h = historyRow(o);
+    rows.push([h.number, h.date, h.time, h.name, h.phone, h.vehicle, h.plate, h.items, h.total, h.status].map(esc).join(','));
+  }
+  res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="yanoi-orders-${istDay()}.csv"` });
+  res.send(rows.join('\r\n'));
+});
+ 
 // ---- QR code + printable poster ----
 app.get('/qr.png', async (req, res) => {
   res.type('png').send(await QRCode.toBuffer(config.baseUrl, { width: 900, margin: 2, errorCorrectionLevel: 'H' }));
