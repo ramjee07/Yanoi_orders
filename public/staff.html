@@ -30,6 +30,15 @@ button.ok{background:var(--ok);color:#052e16}button.off{background:var(--bad)}
 #login{max-width:320px;margin:20vh auto;text-align:center}
 #login input{width:100%;padding:14px;font-size:22px;text-align:center;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);letter-spacing:6px;margin:12px 0}
 .hidden{display:none}.conn{font-size:12px;color:var(--mute)}
+a.ghost{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:700;background:var(--card);border:1px solid var(--line);color:var(--ink);cursor:pointer}
+#historyView{padding:14px 16px}
+#historyView .hRow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+#historyView input{flex:1;min-width:180px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:15px}
+.htable{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden}
+.htable th,.htable td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);font-size:13px}
+.htable th{color:var(--mute);text-transform:uppercase;font-size:11px;letter-spacing:.5px}
+.htable tr:last-child td{border-bottom:0}
+.safeNote{color:var(--mute);font-size:12px;margin:10px 2px 0}
 </style>
 </head>
 <body>
@@ -47,6 +56,8 @@ button.ok{background:var(--ok);color:#052e16}button.off{background:var(--bad)}
     <div class="stat">Revenue<b id="sRev">₹0</b></div>
     <div class="stat">Avg prep<b id="sAvg">–</b></div>
     <div class="stat">On time<b id="sOn">–</b></div>
+    <button id="histBtn" class="ghost">📋 Customer records</button>
+    <a id="exportBtn" class="ghost" href="#" download>⬇️ Backup CSV</a>
     <button id="openBtn" class="ok">Taking orders</button>
   </div>
   <div class="menuRow" id="menuRow"></div>
@@ -56,6 +67,20 @@ button.ok{background:var(--ok);color:#052e16}button.off{background:var(--bad)}
     <div class="col"><h2>Preparing</h2><div id="cPrep"></div></div>
     <div class="col"><h2>Ready at door</h2><div id="cReady"></div></div>
   </div>
+</div>
+
+<div id="historyView" class="hidden">
+  <div class="hRow">
+    <h1 style="margin:0;font-size:20px">📋 All customer records</h1>
+    <input id="histSearch" placeholder="Search by name or phone…">
+    <a id="exportBtn2" class="ghost" href="#" download style="text-decoration:none;padding:10px 14px;border-radius:10px;background:var(--card);border:1px solid var(--line);color:var(--ink);font-weight:700">⬇️ Backup CSV</a>
+    <button id="histClose" class="ghost">✕ Close</button>
+  </div>
+  <table class="htable">
+    <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Name</th><th>Phone</th><th>Vehicle</th><th>Items</th><th>Total</th><th>Status</th></tr></thead>
+    <tbody id="histBody"></tbody>
+  </table>
+  <div class="safeNote">These records live in the app's data file on the server. Tap "Backup CSV" now and then to save a copy to your own computer or Google Drive — that way your customer list is safe even if something happens to the server.</div>
 </div>
 
 <script>
@@ -79,6 +104,8 @@ async function login(p){
   if(!r.ok){ $('#lerr').textContent = 'Wrong PIN'; return; }
   pin = p; sessionStorage.setItem('pin', p);
   $('#login').classList.add('hidden'); $('#app').classList.remove('hidden'); connect();
+  const csvUrl = '/api/staff/orders/export.csv?pin=' + encodeURIComponent(pin);
+  $('#exportBtn').href = csvUrl; $('#exportBtn2').href = csvUrl;
   beep(); // quick confirmation blip so staff know sound is live
 }
 $('#go').onclick = () => { unlockAudio(); login($('#pin').value); };
@@ -174,6 +201,30 @@ document.addEventListener('click', async e => {
   if(b.dataset.sold) await api('/api/staff/soldout', { id:b.dataset.sold, soldOut:b.dataset.v==='true' });
 });
 $('#openBtn').onclick = () => api('/api/staff/open', { open: !snap.open });
+
+// ---- customer records / order history ----
+let histRows = [];
+async function openHistory(){
+  try{
+    const r = await fetch('/api/staff/orders/history', { headers: { 'x-staff-pin': pin } });
+    histRows = r.ok ? await r.json() : [];
+  }catch(_){ histRows = []; }
+  $('#histSearch').value = '';
+  renderHistory();
+  $('#app').classList.add('hidden');
+  $('#historyView').classList.remove('hidden');
+}
+function renderHistory(){
+  const q = $('#histSearch').value.trim().toLowerCase();
+  const rows = q ? histRows.filter(o => (o.name||'').toLowerCase().includes(q) || (o.phone||'').includes(q)) : histRows;
+  $('#histBody').innerHTML = rows.length ? rows.map(o => `<tr>
+    <td>#${o.number}</td><td>${o.date}</td><td>${o.time}</td><td>${o.name}</td><td>${o.phone}</td>
+    <td>${o.vehicle}${o.plate ? ' ****'+o.plate : ''}</td><td>${o.items}</td><td>${rupee(o.total)}</td><td>${o.status}</td>
+  </tr>`).join('') : '<tr><td colspan="9" class="empty">No matching orders</td></tr>';
+}
+$('#histBtn').onclick = openHistory;
+$('#histClose').onclick = () => { $('#historyView').classList.add('hidden'); $('#app').classList.remove('hidden'); };
+$('#histSearch').addEventListener('input', renderHistory);
 </script>
 </body>
 </html>
