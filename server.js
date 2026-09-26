@@ -143,12 +143,12 @@ app.post('/api/orders', rateLimit(10, 60000), async (req, res) => {
     const { items, name, phone, vehicleType, vehiclePlate } = req.body || {};
     const cleanName = String(name || '').trim().slice(0, 40);
     const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
-    const cleanVehicleType = ['2w', '4w'].includes(vehicleType) ? vehicleType : null;
-    const cleanPlate = String(vehiclePlate || '').replace(/\D/g, '').slice(0, 4);
+    const cleanVehicleType = ['2w', '4w', 'walk'].includes(vehicleType) ? vehicleType : null;
+    const cleanPlate = cleanVehicleType === 'walk' ? '' : String(vehiclePlate || '').replace(/\D/g, '').slice(0, 4);
     if (!cleanName) return res.status(400).json({ error: 'Please enter your name.' });
     if (!/^[6-9]\d{9}$/.test(cleanPhone)) return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.' });
     if (!cleanVehicleType) return res.status(400).json({ error: 'Please select your vehicle type.' });
-    if (!/^\d{4}$/.test(cleanPlate)) return res.status(400).json({ error: 'Please enter the last 4 digits of your vehicle number.' });
+    if (cleanVehicleType !== 'walk' && !/^\d{4}$/.test(cleanPlate)) return res.status(400).json({ error: 'Please enter the last 4 digits of your vehicle number.' });
     if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Your cart is empty.' });
  
     const lines = []; let total = 0, qtyTotal = 0;
@@ -257,4 +257,3 @@ app.listen(config.port, () => {
   console.log(`Yanoi ordering running on port ${config.port}  (${DEMO ? 'DEMO payments - set Razorpay keys for live UPI' : 'LIVE Razorpay payments'})`);
   console.log(`Customer page: ${config.baseUrl}   Staff screen: ${config.baseUrl}/staff   QR poster: ${config.baseUrl}/poster`);
 });
- 
